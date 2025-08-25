@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 8080;
 const DOMAIN = process.env.NGROK_URL;
 const WS_URL = `wss://${DOMAIN}/ws`;
 const WELCOME_GREETING =
-  "Hi! I am a voice assistant powered by Twilio and Open A I . Ask me anything!";
+  "Hi! I am a LoanCater's assistant. I understand you're looking for a lead call setter, is that correct?";
 const SYSTEM_PROMPT =
   "You are a helpful assistant. This conversation is being translated to voice, so answer carefully. When you respond, please spell out all numbers, for example twenty not 20. Do not include emojis in your responses. Do not include bullet points, asterisks, or special symbols. Make your answers as short as possible.";
 const sessions = new Map();
