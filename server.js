@@ -15,13 +15,39 @@ const SYSTEM_PROMPT =
 const sessions = new Map();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-async function aiResponse(messages) {
-  let completion = await openai.chat.completions.create({
+
+async function* aiResponseStream(messages) {
+  const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    messages: messages,
+    messages,
+    stream: true,
   });
-  return completion.choices[0].message.content;
+
+  let buffer = "";
+
+  for await (const chunk of completion) {
+    const content = chunk.choices?.[0]?.delta?.content;
+    if (!content) continue;
+
+    buffer += content;
+
+    // Yield when buffer ends with punctuation
+    const matches = buffer.match(/(.+?[.!?])(\s|$)/);
+    if (matches) {
+      const sentence = matches[1];
+      yield sentence;
+
+      // Remove the yielded sentence from buffer
+      buffer = buffer.slice(sentence.length);
+    }
+  }
+
+  // Yield remaining content if any
+  if (buffer.trim()) {
+    yield buffer;
+  }
 }
+
 
 const fastify = Fastify();
 fastify.register(fastifyWs);
@@ -54,17 +80,21 @@ fastify.register(async function (fastify) {
           const conversation = sessions.get(ws.callSid);
           conversation.push({ role: "user", content: message.voicePrompt });
 
-          const response = await aiResponse(conversation);
-          conversation.push({ role: "assistant", content: response });
+          let content = "";
+          for await (const sentence of aiResponseStream(conversation)) {           
+            ws.send(
+              JSON.stringify({
+                type: "text",
+                token: sentence,
+                last: true,
+              })
+            );
+            content += sentence;       
+          }
+          
+          conversation.push({ role: "assistant", content: content });
+          console.log("Sent response:", content);
 
-          ws.send(
-            JSON.stringify({
-              type: "text",
-              token: response,
-              last: true,
-            })
-          );
-          console.log("Sent response:", response);
           break;
         case "interrupt":
           console.log("Handling interruption.");
@@ -83,7 +113,7 @@ fastify.register(async function (fastify) {
 });
 
 try {
-  fastify.listen({ port: PORT, host: "0.0.0.0" });
+  fastify.listen({ port: PORT });
   console.log(
     `Server running at http://localhost:${PORT} and wss://${DOMAIN}/ws`
   );
