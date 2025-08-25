@@ -113,7 +113,7 @@ fastify.register(async function (fastify) {
 });
 
 try {
-  fastify.listen({ port: PORT });
+  fastify.listen({ port: PORT, host: "0.0.0.0" });
   console.log(
     `Server running at http://localhost:${PORT} and wss://${DOMAIN}/ws`
   );
